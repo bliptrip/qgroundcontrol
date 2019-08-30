@@ -253,6 +253,7 @@ VideoManager::isGStreamer()
     return
         videoSource == VideoSettings::videoSourceUDPH264 ||
         videoSource == VideoSettings::videoSourceUDPH265 ||
+        videoSource == VideoSettings::videoSourceUDPJPEG ||
         videoSource == VideoSettings::videoSourceRTSP ||
         videoSource == VideoSettings::videoSourceTCP ||
         videoSource == VideoSettings::videoSourceMPEGTS ||
@@ -345,6 +346,8 @@ VideoManager::_updateSettings()
         _videoReceiver->setUri(QStringLiteral("udp://0.0.0.0:%1").arg(_videoSettings->udpPort()->rawValue().toInt()));
     else if (source == VideoSettings::videoSourceUDPH265)
         _videoReceiver->setUri(QStringLiteral("udp265://0.0.0.0:%1").arg(_videoSettings->udpPort()->rawValue().toInt()));
+    else if (source == VideoSettings::videoSourceUDPJPEG)
+        _videoReceiver->setUri(QStringLiteral("udpJPEG://0.0.0.0:%1").arg(_videoSettings->udpPort()->rawValue().toInt()));
     else if (source == VideoSettings::videoSourceMPEGTS)
         _videoReceiver->setUri(QStringLiteral("mpegts://0.0.0.0:%1").arg(_videoSettings->udpPort()->rawValue().toInt()));
     else if (source == VideoSettings::videoSourceRTSP)

@@ -38,7 +38,8 @@ public:
         H264_SW = 1,
         H264_HW = 2,
         H265_SW = 3,
-        H265_HW = 4
+        H265_HW = 4,
+        MJPEG_SW = 5
     };
 
 #if defined(QGC_GST_STREAMING)

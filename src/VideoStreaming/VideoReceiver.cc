@@ -185,6 +185,7 @@ VideoReceiver::start()
 #endif
     bool isUdp264   = _uri.contains("udp://")  && !isTaisyncUSB;
     bool isUdp265   = _uri.contains("udp265://")  && !isTaisyncUSB;
+    bool isUdpJPEG = _uri.contains("udpJPEG://")  && !isTaisyncUSB;
     bool isTCP      = _uri.contains("tcp://")  && !isTaisyncUSB;
     bool isMPEGTS   = _uri.contains("mpegts://")  && !isTaisyncUSB;
 
@@ -204,6 +205,8 @@ VideoReceiver::start()
         setVideoDecoder(H264_HW);
     } else if (isUdp265) {
         setVideoDecoder(H265_HW);
+    } else if (isUdpJPEG) {
+        setVideoDecoder(MJPEG_SW);
     }
 
     _starting = true;
@@ -225,7 +228,7 @@ VideoReceiver::start()
             break;
         }
 
-        if(isUdp264 || isUdp265 || isMPEGTS || isTaisyncUSB) {
+        if(isUdp264 || isUdp265 || isUdpJPEG || isMPEGTS || isTaisyncUSB) {
             dataSource = gst_element_factory_make("udpsrc", "udp-source");
         } else if(isTCP) {
             dataSource = gst_element_factory_make("tcpclientsrc", "tcpclient-source");
@@ -250,6 +253,12 @@ VideoReceiver::start()
                 break;
             }
             g_object_set(static_cast<gpointer>(dataSource), "uri", qPrintable(_uri.replace("udp265", "udp")), "caps", caps, nullptr);
+        } else if(isUdpJPEG) {
+            if ((caps = gst_caps_from_string("application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)JPEG")) == nullptr) {
+                qCritical() << "VideoReceiver::start() failed. Error with gst_caps_from_string()";
+                break;
+            }
+            g_object_set(static_cast<gpointer>(dataSource), "uri", qPrintable(_uri.replace("udpJPEG", "udp")), "caps", caps, nullptr);
 #if  defined(QGC_GST_TAISYNC_ENABLED) && (defined(__android__) || defined(__ios__))
         } else if(isTaisyncUSB) {
             QString uri = QString("0.0.0.0:%1").arg(TAISYNC_VIDEO_UDP_PORT);
@@ -280,9 +289,11 @@ VideoReceiver::start()
             }
         }
 
-        if ((parser = gst_element_factory_make(_parserName, "parser")) == nullptr) {
-            qCritical() << "VideoReceiver::start() failed. Error with gst_element_factory_make('" << _parserName << "')";
-            break;
+        if( _parserName != nullptr ) {
+            if ((parser = gst_element_factory_make(_parserName, "parser")) == nullptr) {
+                qCritical() << "VideoReceiver::start() failed. Error with gst_element_factory_make('" << _parserName << "')";
+                break;
+            }
         }
 
         if((_tee = gst_element_factory_make("tee", nullptr)) == nullptr)  {
@@ -311,9 +322,17 @@ VideoReceiver::start()
         }
 
         if(isTaisyncUSB) {
-            gst_bin_add_many(GST_BIN(_pipeline), dataSource, parser, _tee, queue, decoder, queue1, _videoSink, nullptr);
+            if( parser != nullptr ) {
+                gst_bin_add_many(GST_BIN(_pipeline), dataSource, parser, _tee, queue, decoder, queue1, _videoSink, nullptr);
+            } else {
+                gst_bin_add_many(GST_BIN(_pipeline), dataSource, _tee, queue, decoder, queue1, _videoSink, nullptr);
+            }
         } else {
-            gst_bin_add_many(GST_BIN(_pipeline), dataSource, demux, parser, _tee, queue, decoder, queue1, _videoSink, nullptr);
+            if( parser != nullptr ) {
+                gst_bin_add_many(GST_BIN(_pipeline), dataSource, demux, parser, _tee, queue, decoder, queue1, _videoSink, nullptr);
+            } else {
+                gst_bin_add_many(GST_BIN(_pipeline), dataSource, demux, _tee, queue, decoder, queue1, _videoSink, nullptr);
+            }
         }
         pipelineUp = true;
 
@@ -321,6 +340,12 @@ VideoReceiver::start()
             // Link the pipeline in front of the tee
             if(!gst_element_link_many(dataSource, demux, parser, _tee, queue, decoder, queue1, _videoSink, nullptr)) {
                 qCritical() << "Unable to link UDP elements.";
+                break;
+            }
+        } else if(isUdpJPEG) {
+            // Link the pipeline in front of the tee
+            if(!gst_element_link_many(dataSource, demux, _tee, queue, decoder, queue1, _videoSink, nullptr)) {
+                qCritical() << "Unable to link UDP JPEG elements.";
                 break;
             }
         } else if(isTaisyncUSB) {
@@ -617,6 +642,10 @@ VideoReceiver::setVideoDecoder(VideoEncoding encoding)
         _hwDecoderName = "amcviddec-omxgooglehevcdecoder";
 #endif
         _swDecoderName = "avdec_h265";
+    } else if(encoding == MJPEG_SW) { 
+        _depayName  = "rtpjpegdepay";
+        _parserName = nullptr;
+        _swDecoderName = "jpegdec";
     } else {
         _depayName  = "rtph264depay";
         _parserName = "h264parse";
@@ -667,12 +696,16 @@ VideoReceiver::startRecording(const QString &videoFile)
     _sink           = new Sink();
     _sink->teepad   = gst_element_get_request_pad(_tee, "src_%u");
     _sink->queue    = gst_element_factory_make("queue", nullptr);
-    _sink->parse    = gst_element_factory_make(_parserName, nullptr);
+    if( _parserName != nullptr ) {
+        _sink->parse    = gst_element_factory_make(_parserName, nullptr);
+    } else {
+        _sink->parse    = nullptr;
+    }
     _sink->mux      = gst_element_factory_make(kVideoMuxes[muxIdx], nullptr);
     _sink->filesink = gst_element_factory_make("filesink", nullptr);
     _sink->removing = false;
 
-    if(!_sink->teepad || !_sink->queue || !_sink->mux || !_sink->filesink || !_sink->parse) {
+    if(!_sink->teepad || !_sink->queue || !_sink->mux || !_sink->filesink || ((_parserName != nullptr) && !_sink->parse)) {
         qCritical() << "VideoReceiver::startRecording() failed to make _sink elements";
         return;
     }
@@ -693,15 +726,24 @@ VideoReceiver::startRecording(const QString &videoFile)
     qCDebug(VideoReceiverLog) << "New video file:" << _videoFile;
 
     gst_object_ref(_sink->queue);
-    gst_object_ref(_sink->parse);
+    if( _sink->parse != nullptr ) {
+        gst_object_ref(_sink->parse);
+    }
     gst_object_ref(_sink->mux);
     gst_object_ref(_sink->filesink);
 
-    gst_bin_add_many(GST_BIN(_pipeline), _sink->queue, _sink->parse, _sink->mux, nullptr);
-    gst_element_link_many(_sink->queue, _sink->parse, _sink->mux, nullptr);
+    if( _sink->parse != nullptr ) {
+        gst_bin_add_many(GST_BIN(_pipeline), _sink->queue, _sink->parse, _sink->mux, nullptr);
+        gst_element_link_many(_sink->queue, _sink->parse, _sink->mux, nullptr);
+    } else {
+        gst_bin_add_many(GST_BIN(_pipeline), _sink->queue, _sink->mux, nullptr);
+        gst_element_link_many(_sink->queue, _sink->mux, nullptr);
+    }
 
     gst_element_sync_state_with_parent(_sink->queue);
-    gst_element_sync_state_with_parent(_sink->parse);
+    if( _sink->parse != nullptr ) {
+        gst_element_sync_state_with_parent(_sink->parse);
+    }
     gst_element_sync_state_with_parent(_sink->mux);
 
     // Install a probe on the recording branch to drop buffers until we hit our first keyframe
@@ -755,7 +797,9 @@ void
 VideoReceiver::_shutdownRecordingBranch()
 {
     gst_bin_remove(GST_BIN(_pipelineStopRec), _sink->queue);
-    gst_bin_remove(GST_BIN(_pipelineStopRec), _sink->parse);
+    if( _parserName != nullptr ) {
+        gst_bin_remove(GST_BIN(_pipelineStopRec), _sink->parse);
+    }
     gst_bin_remove(GST_BIN(_pipelineStopRec), _sink->mux);
     gst_bin_remove(GST_BIN(_pipelineStopRec), _sink->filesink);
 
@@ -764,12 +808,16 @@ VideoReceiver::_shutdownRecordingBranch()
     _pipelineStopRec = nullptr;
 
     gst_element_set_state(_sink->filesink,  GST_STATE_NULL);
-    gst_element_set_state(_sink->parse,     GST_STATE_NULL);
+    if( _parserName != nullptr ) {
+        gst_element_set_state(_sink->parse,     GST_STATE_NULL);
+    }
     gst_element_set_state(_sink->mux,       GST_STATE_NULL);
     gst_element_set_state(_sink->queue,     GST_STATE_NULL);
 
     gst_object_unref(_sink->queue);
-    gst_object_unref(_sink->parse);
+    if( _parserName != nullptr ) {
+        gst_object_unref(_sink->parse);
+    }
     gst_object_unref(_sink->mux);
     gst_object_unref(_sink->filesink);
 
@@ -794,7 +842,11 @@ VideoReceiver::_detachRecordingBranch(GstPadProbeInfo* info)
     Q_UNUSED(info)
 
     // Also unlinks and unrefs
-    gst_bin_remove_many(GST_BIN(_pipeline), _sink->queue, _sink->parse, _sink->mux, _sink->filesink, nullptr);
+    if( _parserName != nullptr ) {
+        gst_bin_remove_many(GST_BIN(_pipeline), _sink->queue, _sink->parse, _sink->mux, _sink->filesink, nullptr);
+    } else {
+        gst_bin_remove_many(GST_BIN(_pipeline), _sink->queue, _sink->mux, _sink->filesink, nullptr);
+    }
 
     // Give tee its pad back
     gst_element_release_request_pad(_tee, _sink->teepad);
@@ -804,8 +856,13 @@ VideoReceiver::_detachRecordingBranch(GstPadProbeInfo* info)
     _pipelineStopRec = gst_pipeline_new("pipeStopRec");
 
     // Put our elements from the recording branch into the temporary pipeline
-    gst_bin_add_many(GST_BIN(_pipelineStopRec), _sink->queue, _sink->parse, _sink->mux, _sink->filesink, nullptr);
-    gst_element_link_many(_sink->queue, _sink->parse, _sink->mux, _sink->filesink, nullptr);
+    if( _parserName != nullptr ) {
+        gst_bin_add_many(GST_BIN(_pipelineStopRec), _sink->queue, _sink->parse, _sink->mux, _sink->filesink, nullptr);
+        gst_element_link_many(_sink->queue, _sink->parse, _sink->mux, _sink->filesink, nullptr);
+    } else {
+        gst_bin_add_many(GST_BIN(_pipelineStopRec), _sink->queue, _sink->mux, _sink->filesink, nullptr);
+        gst_element_link_many(_sink->queue, _sink->mux, _sink->filesink, nullptr);
+    }
 
     // Add handler for EOS event
     GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE(_pipelineStopRec));
