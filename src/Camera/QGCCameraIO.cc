@@ -134,9 +134,12 @@ QGCCameraParamIO::_sendParameter()
     mavlink_param_ext_set_t p;
     memset(&p, 0, sizeof(mavlink_param_ext_set_t));
     param_ext_union_t   union_value;
+    memset(&union_value.bytes[0], 0, MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN);
     mavlink_message_t   msg;
     FactMetaData::ValueType_t factType = _fact->type();
     p.param_type = _mavParamType;
+    QString param_value_as_string;
+#ifdef PARAM_EXT_VALUE_AS_BYTE_ARRAY
     switch (factType) {
         case FactMetaData::valueTypeUint8:
         case FactMetaData::valueTypeBool:
@@ -181,6 +184,40 @@ QGCCameraParamIO::_sendParameter()
             union_value.param_int32 = static_cast<int32_t>(_fact->rawValue().toInt());
             break;
     }
+#else
+    /* Convert everything to a string before sending out, as the remote side's 'decode' expects them to be 'char *' based on the Mavlink schema */
+    switch (factType) {
+        case FactMetaData::valueTypeBool:
+            if( _fact->rawValue().toBool() ) {
+                param_value_as_string = QString("1");
+            } else {
+                param_value_as_string = QString("0");
+            }
+            break;
+        case FactMetaData::valueTypeInt8:
+        case FactMetaData::valueTypeInt16:
+        case FactMetaData::valueTypeInt32:
+        case FactMetaData::valueTypeInt64:
+        case FactMetaData::valueTypeUint8:
+        case FactMetaData::valueTypeUint16:
+        case FactMetaData::valueTypeUint32:
+        case FactMetaData::valueTypeUint64:
+        case FactMetaData::valueTypeFloat:
+        case FactMetaData::valueTypeDouble:
+        case FactMetaData::valueTypeString:
+        case FactMetaData::valueTypeCustom:
+            /* Treat everything as a utf-8 string -- Since technically that is how the message definition files are
+             * defined */
+            param_value_as_string = _fact->rawValue().toString();
+            break;
+        default:
+            param_value_as_string = QString("0");
+            qCritical() << "Unsupported fact type" << factType << "for" << _fact->name();
+            //-- Fall Through (screw clang)
+            break;
+    }
+    memcpy(union_value.bytes, param_value_as_string.toStdString().data(), static_cast<size_t>(param_value_as_string.size()));
+#endif
     memcpy(&p.param_value[0], &union_value.bytes[0], MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN);
     p.target_system     = static_cast<uint8_t>(_vehicle->id());
     p.target_component  = static_cast<uint8_t>(_control->compID());
@@ -277,6 +314,59 @@ QGCCameraParamIO::_valueFromMessage(const char* value, uint8_t param_type)
 {
     QVariant var;
     param_ext_union_t u;
+
+    #ifndef PARAM_EXT_VALUE_AS_BYTE_ARRAY
+    memset(u.bytes, 0, MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN);
+    QString ubytes_as_string(value);
+    switch (param_type) {
+        case MAV_PARAM_EXT_TYPE_REAL64:
+            u.param_float = ubytes_as_string.toDouble();
+            var = QVariant(u.param_double);
+            break;
+        case MAV_PARAM_EXT_TYPE_REAL32:
+            u.param_float = ubytes_as_string.toFloat();
+            var = QVariant(u.param_float);
+            break;
+        case MAV_PARAM_EXT_TYPE_UINT8:
+            u.param_uint8 = ubytes_as_string.toUInt();
+            var = QVariant(u.param_uint8);
+            break;
+        case MAV_PARAM_EXT_TYPE_INT8:
+            u.param_int8 = ubytes_as_string.toInt();
+            var = QVariant(u.param_int8);
+            break;
+        case MAV_PARAM_EXT_TYPE_UINT16:
+            u.param_uint16 = ubytes_as_string.toUShort();
+            var = QVariant(u.param_uint16);
+            break;
+        case MAV_PARAM_EXT_TYPE_INT16:
+            u.param_int16 = ubytes_as_string.toShort();
+            var = QVariant(u.param_int16);
+            break;
+        case MAV_PARAM_EXT_TYPE_UINT32:
+            u.param_uint32 = ubytes_as_string.toUInt();
+            var = QVariant(u.param_uint32);
+            break;
+        case MAV_PARAM_EXT_TYPE_INT32:
+            u.param_int32 = ubytes_as_string.toInt();
+            var = QVariant(u.param_int32);
+            break;
+        case MAV_PARAM_EXT_TYPE_UINT64:
+            u.param_uint64 = ubytes_as_string.toULongLong();
+            var = QVariant(static_cast<qulonglong>(u.param_uint64));
+            break;
+        case MAV_PARAM_EXT_TYPE_INT64:
+            u.param_int64 = ubytes_as_string.toLongLong();
+            var = QVariant(static_cast<qulonglong>(u.param_int64));
+            break;
+        case MAV_PARAM_EXT_TYPE_CUSTOM:
+            var = QVariant(QByteArray(value, MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN));
+            break;
+        default:
+            var = QVariant(0);
+            qCritical() << "Invalid param_type used for camera setting:" << param_type;
+    }
+    #else
     memcpy(u.bytes, value, MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN);
     switch (param_type) {
         case MAV_PARAM_EXT_TYPE_REAL32:
@@ -313,6 +403,7 @@ QGCCameraParamIO::_valueFromMessage(const char* value, uint8_t param_type)
             var = QVariant(0);
             qCritical() << "Invalid param_type used for camera setting:" << param_type;
     }
+    #endif
     return var;
 }
 

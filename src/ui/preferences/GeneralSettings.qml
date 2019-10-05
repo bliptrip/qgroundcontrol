@@ -48,9 +48,11 @@ Rectangle {
     property bool   _isGst:                     QGroundControl.videoManager.isGStreamer
     property bool   _isUDP264:                  _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udp264VideoSource
     property bool   _isUDP265:                  _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udp265VideoSource
+    property bool   _isUDPJPEG:                 _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udpJPEGVideoSource
     property bool   _isRTSP:                    _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.rtspVideoSource
     property bool   _isTCP:                     _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.tcpVideoSource
     property bool   _isMPEGTS:                  _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.mpegtsVideoSource
+    property bool   _isMulticastChecked:        QGroundControl.settingsManager.videoSettings.isMulticast.value != false
 
     property string gpsDisabled: "Disabled"
     property string gpsUdpPort:  "UDP Port"
@@ -815,13 +817,33 @@ Rectangle {
                             }
 
                             QGCLabel {
+                                text:                   qsTr("Multicast")
+                                visible:                (_isUDPJPEG) && QGroundControl.settingsManager.videoSettings.isMulticast.visible
+                            }
+                            FactCheckBox {
+                                text:                   ""
+                                fact:                   QGroundControl.settingsManager.videoSettings.isMulticast
+                                visible:                (_isUDPJPEG) && QGroundControl.settingsManager.videoSettings.isMulticast.visible
+                            }
+
+                            QGCLabel {
+                                text:                   qsTr("Multicast IP Address")
+                                visible:                (_isUDPJPEG) && _isMulticastChecked && QGroundControl.settingsManager.videoSettings.multicastIP.visible
+                            }
+                            FactTextField {
+                                Layout.preferredWidth:  _comboFieldWidth
+                                fact:                   QGroundControl.settingsManager.videoSettings.multicastIP
+                                visible:                (_isUDPJPEG) && _isMulticastChecked && QGroundControl.settingsManager.videoSettings.multicastIP.visible
+                            }
+
+                            QGCLabel {
                                 text:                   qsTr("UDP Port")
-                                visible:                (_isUDP264 || _isUDP265 || _isMPEGTS)  && QGroundControl.settingsManager.videoSettings.udpPort.visible
+                                visible:                (_isUDP264 || _isUDP265 || _isUDPJPEG || _isMPEGTS )  && QGroundControl.settingsManager.videoSettings.udpPort.visible
                             }
                             FactTextField {
                                 Layout.preferredWidth:  _comboFieldWidth
                                 fact:                   QGroundControl.settingsManager.videoSettings.udpPort
-                                visible:                (_isUDP264 || _isUDP265 || _isMPEGTS) && QGroundControl.settingsManager.videoSettings.udpPort.visible
+                                visible:                (_isUDP264 || _isUDP265 || _isUDPJPEG || _isMPEGTS) && QGroundControl.settingsManager.videoSettings.udpPort.visible
                             }
 
                             QGCLabel {

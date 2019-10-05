@@ -113,9 +113,23 @@
 },
 {
     "name":             "disableWhenDisarmed",
-    "shortDescription": "Video Stream Disnabled When Armed",
+    "shortDescription": "Video Stream Disabled When Armed",
     "longDescription":  "Disable Video Stream when disarmed.",
     "type":             "bool",
     "defaultValue":     false
+},
+{
+    "name":             "isMulticast",
+    "shortDescription": "Video Source is Multicast",
+    "longDescription":  "Whether the video source is a multicast stream.",
+    "type":             "bool",
+    "defaultValue":     true
+},
+{
+    "name":             "multicastIP",
+    "shortDescription": "Multicast IP Address",
+    "longDescription":  "Streaming Video's Multicast IP Address to subscribe to.",
+    "type":             "string",
+    "defaultValue":     "239.0.0.1"
 }
 ]

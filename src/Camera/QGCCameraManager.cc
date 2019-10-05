@@ -369,6 +369,8 @@ QGCCameraManager::_requestCameraInfo(int compID)
             MAV_CMD_REQUEST_CAMERA_INFORMATION,     // command id
             false,                                  // showError
             1);                                     // Do Request
+    } else {
+        qWarning() << "No vehicle defined for this Camera Manager Component";
     }
 }
 
