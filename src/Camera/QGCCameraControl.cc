@@ -1856,21 +1856,51 @@ void
 QGCCameraControl::_httpRequest(const QString &url)
 {
     qCDebug(CameraControlLog) << "Request camera definition:" << url;
-    if(!_netManager) {
-        _netManager = new QNetworkAccessManager(this);
+    QFile file;
+    QString cam_definition_path;
+    QString path;
+    QUrl urlO;
+    QByteArray data;
+
+    urlO = QUrl(url);
+    if(urlO.isLocalFile()) {
+        //If this is a file scheme, then search for file in the CAM_DEF_URL path first, followed by searching for file
+        //as relative/absolute in the path.
+        path = urlO.path();
+        QFile file(path);
+        if( !file.exists() ) {
+            cam_definition_path = QProcessEnvironment::systemEnvironment().value("CAM_DEFINITION_PATH", "");
+            if( cam_definition_path != "" ) {
+                QFileInfo fileInfo(cam_definition_path + '/' + path);
+                path = fileInfo.canonicalFilePath();
+                QFile file(path);
+                if( !file.exists() )
+                    return;
+            }
+        }
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            return;
+        QTextStream in(&file);
+        data = in.readAll().toUtf8();
+        data.append("\n");
+        emit dataReady(data);
+    } else {
+        if(!_netManager) {
+            _netManager = new QNetworkAccessManager(this);
+        }
+        QNetworkProxy savedProxy = _netManager->proxy();
+        QNetworkProxy tempProxy;
+        tempProxy.setType(QNetworkProxy::DefaultProxy);
+        _netManager->setProxy(tempProxy);
+        QNetworkRequest request(url);
+        request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
+        QSslConfiguration conf = request.sslConfiguration();
+        conf.setPeerVerifyMode(QSslSocket::VerifyNone);
+        request.setSslConfiguration(conf);
+        QNetworkReply* reply = _netManager->get(request);
+        connect(reply, &QNetworkReply::finished,  this, &QGCCameraControl::_downloadFinished);
+        _netManager->setProxy(savedProxy);
     }
-    QNetworkProxy savedProxy = _netManager->proxy();
-    QNetworkProxy tempProxy;
-    tempProxy.setType(QNetworkProxy::DefaultProxy);
-    _netManager->setProxy(tempProxy);
-    QNetworkRequest request(url);
-    request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
-    QSslConfiguration conf = request.sslConfiguration();
-    conf.setPeerVerifyMode(QSslSocket::VerifyNone);
-    request.setSslConfiguration(conf);
-    QNetworkReply* reply = _netManager->get(request);
-    connect(reply, &QNetworkReply::finished,  this, &QGCCameraControl::_downloadFinished);
-    _netManager->setProxy(savedProxy);
 }
 
 //-----------------------------------------------------------------------------
