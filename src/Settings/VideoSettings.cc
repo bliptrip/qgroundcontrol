@@ -85,6 +85,7 @@ DECLARE_SETTINGSFACT(VideoSettings, enableStorageLimit)
 DECLARE_SETTINGSFACT(VideoSettings, rtspTimeout)
 DECLARE_SETTINGSFACT(VideoSettings, streamEnabled)
 DECLARE_SETTINGSFACT(VideoSettings, disableWhenDisarmed)
+DECLARE_SETTINGSFACT(VideoSettings, isMulticast)
 
 DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, videoSource)
 {
@@ -110,6 +111,15 @@ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, udpPort)
         connect(_udpPortFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
     }
     return _udpPortFact;
+}
+
+DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, multicastIP)
+{
+    if (!_multicastIPFact) {
+        _multicastIPFact = _createSettingsFact(multicastIPName);
+        connect(_multicastIPFact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+    }
+    return _multicastIPFact;
 }
 
 DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, rtspUrl)

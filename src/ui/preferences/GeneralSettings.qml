@@ -47,10 +47,17 @@ QGCView {
 
     property string _videoSource:               QGroundControl.settingsManager.videoSettings.videoSource.value
     property bool   _isGst:                     QGroundControl.videoManager.isGStreamer
+<<<<<<< HEAD
     property bool   _isUDP:                     _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udpVideoSource
+=======
+    property bool   _isUDP264:                  _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udp264VideoSource
+    property bool   _isUDP265:                  _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udp265VideoSource
+    property bool   _isUDPJPEG:                 _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.udpJPEGVideoSource
+>>>>>>> f3f689574... Updates for multicast support.
     property bool   _isRTSP:                    _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.rtspVideoSource
     property bool   _isTCP:                     _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.tcpVideoSource
     property bool   _isMPEGTS:                  _isGst && _videoSource === QGroundControl.settingsManager.videoSettings.mpegtsVideoSource
+    property bool   _isMulticastChecked:        QGroundControl.settingsManager.videoSettings.isMulticast.value != false
 
     property string gpsDisabled: "Disabled"
     property string gpsUdpPort:  "UDP Port"
@@ -740,13 +747,41 @@ QGCView {
                             }
 
                             QGCLabel {
+                                text:                   qsTr("Multicast")
+                                visible:                (_isUDPJPEG) && QGroundControl.settingsManager.videoSettings.isMulticast.visible
+                            }
+                            FactCheckBox {
+                                text:                   ""
+                                fact:                   QGroundControl.settingsManager.videoSettings.isMulticast
+                                visible:                (_isUDPJPEG) && QGroundControl.settingsManager.videoSettings.isMulticast.visible
+                            }
+
+                            QGCLabel {
+                                text:                   qsTr("Multicast IP Address")
+                                visible:                (_isUDPJPEG) && _isMulticastChecked && QGroundControl.settingsManager.videoSettings.multicastIP.visible
+                            }
+                            FactTextField {
+                                Layout.preferredWidth:  _comboFieldWidth
+                                fact:                   QGroundControl.settingsManager.videoSettings.multicastIP
+                                visible:                (_isUDPJPEG) && _isMulticastChecked && QGroundControl.settingsManager.videoSettings.multicastIP.visible
+                            }
+
+                            QGCLabel {
                                 text:                   qsTr("UDP Port")
+<<<<<<< HEAD
                                 visible:                (_isUDP || _isMPEGTS)  && QGroundControl.settingsManager.videoSettings.udpPort.visible
+=======
+                                visible:                (_isUDP264 || _isUDP265 || _isUDPJPEG || _isMPEGTS )  && QGroundControl.settingsManager.videoSettings.udpPort.visible
+>>>>>>> f3f689574... Updates for multicast support.
                             }
                             FactTextField {
                                 Layout.preferredWidth:  _comboFieldWidth
                                 fact:                   QGroundControl.settingsManager.videoSettings.udpPort
+<<<<<<< HEAD
                                 visible:                (_isUDP || _isMPEGTS) && QGroundControl.settingsManager.videoSettings.udpPort.visible
+=======
+                                visible:                (_isUDP264 || _isUDP265 || _isUDPJPEG || _isMPEGTS) && QGroundControl.settingsManager.videoSettings.udpPort.visible
+>>>>>>> f3f689574... Updates for multicast support.
                             }
 
                             QGCLabel {

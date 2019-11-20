@@ -321,7 +321,15 @@ VideoReceiver::start()
                 qCritical() << "VideoReceiver::start() failed. Error with gst_caps_from_string()";
                 break;
             }
-            g_object_set(static_cast<gpointer>(dataSource), "uri", qPrintable(_uri.replace("udpJPEG", "udp")), "caps", caps, nullptr);
+            if(_videoSettings->isMulticast()->rawValue().toBool()) {
+                //QString multicast_group = QString("multicast-group=") + _videoSettings->multicastIP()->rawValue().toString();
+                //const char *multicast_group_val = qPrintable(multicast_group);
+                //g_object_set(static_cast<gpointer>(dataSource), multicast_group_val, "auto_multicast=true", "caps", caps, nullptr);
+                QString uri = QString("udp://") + _videoSettings->multicastIP()->rawValue().toString() + QString(":") + _videoSettings->udpPort()->rawValue().toString();
+                g_object_set(static_cast<gpointer>(dataSource), "uri", qPrintable(uri), "auto-multicast", true, "caps", caps, nullptr);
+            } else {
+                g_object_set(static_cast<gpointer>(dataSource), "uri", qPrintable(_uri.replace("udpJPEG", "udp")), "caps", caps, nullptr);
+            }
 #if  defined(QGC_GST_TAISYNC_ENABLED) && (defined(__android__) || defined(__ios__))
         } else if(isTaisyncUSB) {
             QString uri = QString("0.0.0.0:%1").arg(TAISYNC_VIDEO_UDP_PORT);
