@@ -3135,6 +3135,7 @@ void Vehicle::sendMavCommand(int component, MAV_CMD command, bool showError, flo
     entry.rgParam[5] = param6;
     entry.rgParam[6] = param7;
 
+
     _mavCommandQueue.append(entry);
 
     if (_mavCommandQueue.count() == 1) {
@@ -3159,6 +3160,8 @@ void Vehicle::sendMavCommandInt(int component, MAV_CMD command, MAV_FRAME frame,
     entry.rgParam[4] = param5;
     entry.rgParam[5] = param6;
     entry.rgParam[6] = param7;
+
+    qCDebug(VehicleLog) << "Sending mav command " << command << "to component id" << component;
 
     _mavCommandQueue.append(entry);
 
