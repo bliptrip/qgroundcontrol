@@ -71,6 +71,7 @@ public:
     virtual void            grabImage       (QString imageFile);
 
     virtual void        setShowFullScreen   (bool show) { _showFullScreen = show; emit showFullScreenChanged(); }
+    void                  setVideoDecoder   (VideoEncoding encoding);
 
 signals:
     void videoRunningChanged                ();
@@ -157,5 +158,9 @@ protected:
     bool            _videoRunning;
     bool            _showFullScreen;
     VideoSettings*  _videoSettings;
+    const char*     _depayName;
+    const char*     _parserName;
+    bool            _tryWithHardwareDecoding = true;
+    const char*     _hwDecoderName;
+    const char*     _swDecoderName;
 };
-

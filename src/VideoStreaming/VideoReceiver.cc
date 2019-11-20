@@ -345,9 +345,9 @@ VideoReceiver::start()
             }
         } else {
             if(!isTaisyncUSB) {
-                if ((demux = gst_element_factory_make("rtph264depay", "rtp-h264-depacketizer")) == nullptr) {
-                   qCritical() << "VideoReceiver::start() failed. Error with gst_element_factory_make('rtph264depay')";
-                    break;
+                if ((demux = gst_element_factory_make(_depayName, "rtp-depacketizer")) == nullptr) {
+                   qCritical() << "VideoReceiver::start() failed. Error with gst_element_factory_make('" << _depayName << "')";
+                   break;
                 }
             }
         }
@@ -371,8 +371,8 @@ VideoReceiver::start()
             break;
         }
 
-        if ((decoder = gst_element_factory_make("avdec_h264", "h264-decoder")) == nullptr) {
-            qCritical() << "VideoReceiver::start() failed. Error with gst_element_factory_make('avdec_h264')";
+        if ((decoder = gst_element_factory_make(_swDecoderName, "decoder")) == nullptr) {
+            qCritical() << "VideoReceiver::start() failed. Error with gst_element_factory_make('" << _swDecoderName << "')";
             break;
         }
 
